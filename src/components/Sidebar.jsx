@@ -1,4 +1,6 @@
-import { useApp } from '../store/AppContext'
+'use client'
+
+import { usePathname, useRouter } from 'next/navigation'
 
 const menuItems = [
   { key: 'dashboard', label: '仪表盘', icon: 'M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 8a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zm12 0a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z' },
@@ -12,33 +14,35 @@ const menuItems = [
 ]
 
 export default function Sidebar() {
-  const { activePage, setActivePage } = useApp()
+  const pathname = usePathname()
+  const router = useRouter()
+
+  const isActive = (key) => pathname === '/' + key || pathname.startsWith('/' + key + '/')
 
   return (
     <aside className="hidden lg:flex self-start my-4 ml-4 h-[calc(100vh-5.5rem)] w-[300px] rounded-[28px] py-6 px-5 bg-white/80 backdrop-blur-xl border border-slate-200/70 shadow-sm dark:bg-offer-card dark:border-white/[0.06] overflow-visible flex-col shrink-0">
       <nav className="relative z-10 ml-4 flex flex-col gap-2.5 flex-1 pt-3">
         {menuItems.map((item) => {
-          const isActive = activePage === item.key
+          const active = isActive(item.key)
           return (
             <button
               key={item.key}
-              onClick={() => setActivePage(item.key)}
+              onClick={() => router.push('/' + item.key)}
               className={`
                 group relative flex w-full items-center gap-3 rounded-2xl py-3 pl-5 pr-4 text-[17px] font-medium transition-all duration-200
-                ${isActive
+                ${active
                   ? 'text-[oklch(0.21_0.04_278)] bg-[oklch(0.21_0.04_278/0.10)] font-semibold scale-[1.02] shadow-sm dark:text-[#A78BFA] dark:bg-[rgba(167,139,250,0.12)]'
                   : 'text-slate-600 hover:text-slate-950 hover:bg-slate-100 dark:text-white/68 dark:hover:text-white/80 dark:hover:bg-white/10'
                 }
               `}
             >
-              {/* Active left indicator bar — inset from edge so it doesn't hit the rounded corner */}
-              {isActive && (
+              {active && (
                 <span className="absolute left-1 top-1/2 -translate-y-1/2 w-[4px] h-6 rounded-full bg-[oklch(0.21_0.04_278)] dark:bg-[#A78BFA]" />
               )}
 
               <svg
                 className={`relative z-10 w-5 h-5 shrink-0 transition-colors duration-200 ${
-                  isActive
+                  active
                     ? 'text-[oklch(0.21_0.04_278)] dark:text-[#A78BFA]'
                     : 'text-slate-400 group-hover:text-slate-700 dark:text-white/55 dark:group-hover:text-white'
                 }`}

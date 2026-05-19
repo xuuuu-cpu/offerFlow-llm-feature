@@ -1,3 +1,4 @@
+'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { useApp } from '../store/AppContext'
 import { saveResumeFile } from '../utils/resumeFileStore'
@@ -21,7 +22,7 @@ const emptyForm = {
 }
 
 export default function ResumeModal({ open, resume, onClose }) {
-  const { setResumes, addToast } = useApp()
+  const { addToast, addResume, updateResume } = useApp()
   const [form, setForm] = useState(() => resume ? { ...emptyForm, ...resume } : { ...emptyForm })
   const [tagInput, setTagInput] = useState('')
   const [fileName, setFileName] = useState(() => resume?.fileName || '')
@@ -138,14 +139,13 @@ export default function ResumeModal({ open, resume, onClose }) {
         resumeData.mimeType = ''
       }
 
-      setResumes((prev) => {
-        if (resume) {
-          return prev.map((r) => r.id === resumeId ? resumeData : r)
-        }
-        return [resumeData, ...prev]
-      })
+      if (resume) {
+        await updateResume(resumeId, resumeData)
+      } else {
+        await addResume(resumeData)
+      }
 
-      console.log('[resume meta] saved to localStorage:', resumeData.id, resumeData.hasFile)
+      console.log('[resume meta] saved:', resumeData.id, resumeData.hasFile)
       addToast(resume ? '简历已更新' : '简历已上传', 'success')
       onClose()
     } catch (err) {

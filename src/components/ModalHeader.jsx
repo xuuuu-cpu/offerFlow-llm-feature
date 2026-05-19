@@ -1,3 +1,4 @@
+'use client'
 export default function ModalHeader({ title, onClose, children }) {
   return (
     <div className="relative flex w-full items-center justify-center px-5 py-4 border-b border-slate-200 dark:border-white/10 shrink-0">

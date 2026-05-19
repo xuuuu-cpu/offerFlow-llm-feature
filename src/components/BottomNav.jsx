@@ -1,4 +1,6 @@
-import { useApp } from '../store/AppContext'
+'use client'
+
+import { usePathname, useRouter } from 'next/navigation'
 
 const navItems = [
   { key: 'dashboard', label: '仪表盘', icon: 'M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 8a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zm12 0a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z' },
@@ -12,27 +14,25 @@ const navItems = [
 ]
 
 export default function BottomNav() {
-  const { activePage, setActivePage } = useApp()
+  const pathname = usePathname()
+  const router = useRouter()
+
+  const isActive = (key) => pathname === '/' + key
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-offer-card/95 backdrop-blur-md border-t border-theme-border flex lg:hidden">
       <div className="flex items-center justify-around w-full overflow-x-auto">
         {navItems.map((item) => {
-          const isActive = activePage === item.key
+          const active = isActive(item.key)
           return (
             <button
               key={item.key}
-              onClick={() => setActivePage(item.key)}
+              onClick={() => router.push('/' + item.key)}
               className={`bottom-nav-btn flex flex-col items-center gap-0.5 py-1.5 px-2 min-w-0 flex-1 ${
-                isActive ? 'text-offer-primary' : 'text-offer-muted'
+                active ? 'text-offer-primary' : 'text-offer-muted'
               }`}
             >
-              <svg
-                className="w-5 h-5 shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} />
               </svg>
               <span className="text-[10px] font-medium truncate w-full text-center">{item.label}</span>

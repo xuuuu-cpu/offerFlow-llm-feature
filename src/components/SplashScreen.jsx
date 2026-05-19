@@ -1,3 +1,4 @@
+'use client'
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useTheme } from '../store/ThemeContext'
 

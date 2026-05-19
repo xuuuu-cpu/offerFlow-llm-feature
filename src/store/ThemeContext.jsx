@@ -1,8 +1,11 @@
+'use client'
+
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 
 const ThemeContext = createContext(null)
 
 function getInitialTheme() {
+  if (typeof window === 'undefined') return 'dark'
   try {
     const saved = localStorage.getItem('app-theme')
     if (saved === 'light' || saved === 'dark') return saved

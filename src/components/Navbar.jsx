@@ -1,10 +1,54 @@
-import { useState } from 'react'
+'use client'
+import { useState, useRef, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useTheme } from '../store/ThemeContext'
+import { useAuth } from '../store/AuthContext'
+import { useApp } from '../store/AppContext'
 
 export default function Navbar() {
   const { theme, toggleTheme } = useTheme()
   const isDark = theme === 'dark'
+  const { user, logout } = useAuth()
+  const { addToast } = useApp()
+  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef(null)
+  const avatarRef = useRef(null)
+
+  // Close menu on click outside / Escape
+  useEffect(() => {
+    if (!menuOpen) return
+    const handleClick = (e) => {
+      if (
+        menuRef.current && !menuRef.current.contains(e.target) &&
+        avatarRef.current && !avatarRef.current.contains(e.target)
+      ) {
+        setMenuOpen(false)
+      }
+    }
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    document.addEventListener('keydown', handleEsc)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('keydown', handleEsc)
+    }
+  }, [menuOpen])
+
+  const handleLogout = async () => {
+    setMenuOpen(false)
+    addToast('已退出登录', 'success')
+    try {
+      await logout()
+    } catch {
+      // Fallback: navigate even if API fails
+    }
+    // Brief delay so the toast renders before redirect
+    setTimeout(() => router.push('/auth/login'), 400)
+  }
 
   const handleAdd = () => {
     alert('新增记录（功能待实现）')
@@ -14,9 +58,7 @@ export default function Navbar() {
     alert('通知中心（功能待实现）')
   }
 
-  const handleAvatar = () => {
-    alert('个人中心（功能待实现）')
-  }
+  const avatarLetter = user?.username ? user.username[0].toUpperCase() : 'U'
 
   return (
     <header className="h-16 bg-offer-card border-b border-theme-border flex items-center justify-between px-6 shrink-0">
@@ -103,12 +145,53 @@ export default function Navbar() {
           <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500" />
         </button>
 
-        <button
-          onClick={handleAvatar}
-          className="w-9 h-9 rounded-full bg-gradient-to-br from-offer-primary to-offer-accent flex items-center justify-center text-white text-sm font-medium hover:shadow-lg hover:shadow-offer-primary/30 transition-all"
-        >
-          U
-        </button>
+        {/* User avatar + dropdown */}
+        <div className="relative">
+          <button
+            ref={avatarRef}
+            onClick={() => setMenuOpen((prev) => !prev)}
+            className="w-9 h-9 rounded-full bg-gradient-to-br from-offer-primary to-offer-accent flex items-center justify-center text-white text-sm font-medium hover:shadow-lg hover:shadow-offer-primary/30 transition-all cursor-pointer"
+          >
+            {avatarLetter}
+          </button>
+
+          {menuOpen && (
+            <div
+              ref={menuRef}
+              className="absolute right-0 top-full mt-2 w-56 z-50 animate-fade-in origin-top-right"
+            >
+              <div className="rounded-xl bg-white dark:bg-[#13151A] border border-slate-200 dark:border-white/[0.08] shadow-xl dark:shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden">
+                {/* User info header */}
+                <div className="px-4 py-3.5 border-b border-slate-100 dark:border-white/[0.06]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-offer-primary to-offer-accent flex items-center justify-center text-white text-sm font-medium shrink-0">
+                      {avatarLetter}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                        {user?.username || '用户'}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-white/45 truncate mt-0.5">
+                        已登录
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Logout */}
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors duration-150"
+                >
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  <span>退出登录</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   )

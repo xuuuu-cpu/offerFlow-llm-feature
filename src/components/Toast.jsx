@@ -1,3 +1,4 @@
+'use client'
 import { useApp } from '../store/AppContext'
 
 export default function Toast() {

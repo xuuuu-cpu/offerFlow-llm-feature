@@ -1,31 +1,38 @@
 {
   "name": "offerflow",
   "private": true,
-  "version": "0.0.0",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "postinstall": "prisma generate",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
+    "db:sqlite": "cp prisma/schema.sqlite.prisma prisma/schema.prisma && cp .env.sqlite .env && prisma generate && echo '✅ Switched to SQLite (local dev)'",
+    "db:pg": "cp prisma/schema.pg.prisma prisma/schema.prisma && cp .env.pg .env && prisma generate && echo '✅ Switched to PostgreSQL (Vercel deploy)'"
   },
   "dependencies": {
-    "@tailwindcss/vite": "^4.3.0",
-    "playwright": "^1.60.0",
+    "@tailwindcss/postcss": "^4.3.0",
+    "bcryptjs": "^3.0.3",
+    "jose": "^6.2.3",
+    "next": "^16.2.6",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "recharts": "^3.8.1",
-    "tailwindcss": "^4.3.0"
+    "tailwindcss": "^4.3.0",
+    "@prisma/client": "^6.5.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^10.3.0",
-    "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
-    "vite": "^8.0.12"
+    "playwright": "^1.60.0",
+    "prisma": "^6.5.0"
   }
 }

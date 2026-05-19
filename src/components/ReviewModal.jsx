@@ -1,3 +1,4 @@
+'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useApp } from '../store/AppContext'
 import { saveReviewAttachment, deleteReviewAttachment } from '../utils/reviewAttachmentStore'

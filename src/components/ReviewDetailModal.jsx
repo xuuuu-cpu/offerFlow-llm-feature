@@ -1,3 +1,4 @@
+'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { useApp } from '../store/AppContext'
 import { getReviewAttachment, deleteReviewAttachment } from '../utils/reviewAttachmentStore'
@@ -44,7 +45,7 @@ function normalizeAttachments(atts) {
 }
 
 export default function ReviewDetailModal({ open, review, onClose, onEdit, onDelete }) {
-  const { reviews: allReviews, setReviews, addToast } = useApp()
+  const { reviews: allReviews, addToast, updateReview } = useApp()
   const liveReview = allReviews.find((r) => r.id === review?.id) || review
 
   const [editingDescId, setEditingDescId] = useState(null)
@@ -90,9 +91,8 @@ export default function ReviewDetailModal({ open, review, onClose, onEdit, onDel
     } catch (e) {
       console.error('[review attachment delete failed]', e)
     }
-    setReviews((prev) => prev.map((r) =>
-      r.id !== liveReview.id ? r : { ...r, attachments: normalizeAttachments(r.attachments).filter((a) => a.id !== attId) }
-    ))
+    const updatedAttachments = normalizeAttachments(liveReview.attachments).filter((a) => a.id !== attId)
+    await updateReview(liveReview.id, { attachments: updatedAttachments })
     setConfirmDeleteAttId(null)
     addToast('附件已删除', 'success')
   }
@@ -136,15 +136,11 @@ export default function ReviewDetailModal({ open, review, onClose, onEdit, onDel
     setEditingDescValue(att.description || '')
   }
 
-  const saveEditDesc = (attId) => {
-    setReviews((prev) => prev.map((r) =>
-      r.id !== liveReview.id ? r : {
-        ...r,
-        attachments: normalizeAttachments(r.attachments).map((a) =>
-          a.id === attId ? { ...a, description: editingDescValue } : a
-        ),
-      }
-    ))
+  const saveEditDesc = async (attId) => {
+    const updatedAttachments = normalizeAttachments(liveReview.attachments).map((a) =>
+      a.id === attId ? { ...a, description: editingDescValue } : a
+    )
+    await updateReview(liveReview.id, { attachments: updatedAttachments })
     setEditingDescId(null)
     setEditingDescValue('')
     addToast('文件说明已更新', 'success')

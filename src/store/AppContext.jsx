@@ -1,4 +1,6 @@
-import { createContext, useContext, useState, useCallback } from 'react'
+'use client'
+
+import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import { generateMockData, defaultSettings } from './mockData'
 import { deleteReviewAttachmentsByReviewId } from '../utils/reviewAttachmentStore'
 import Toast from '../components/Toast'
@@ -58,11 +60,7 @@ export function getResumeStats(resumeId, jobs) {
   const interviewRoundCount = linked.reduce((sum, j) => sum + getInterviewRoundCount(j), 0)
   const offerCount = linked.filter(isOfferJob).length
   return {
-    sentCount,
-    replyCount,
-    interviewPeopleCount,
-    interviewRoundCount,
-    offerCount,
+    sentCount, replyCount, interviewPeopleCount, interviewRoundCount, offerCount,
     interviewRate: sentCount > 0 ? Math.round((interviewPeopleCount / sentCount) * 100) : 0,
     offerRate: sentCount > 0 ? Math.round((offerCount / sentCount) * 100) : 0,
   }
@@ -73,7 +71,6 @@ export function syncInterviewRounds(job) {
   const status = job.status
   const targetRound = STATUS_ROUND_MAP[status]
 
-  // For interview statuses, ensure the current round record exists
   if (targetRound && !rounds.some(r => r.round === targetRound)) {
     rounds.push({
       id: crypto.randomUUID(),
@@ -85,7 +82,6 @@ export function syncInterviewRounds(job) {
     })
   }
 
-  // For 二面中/三面中/终面中, auto-pass previous rounds
   if (targetRound && ['二面中', '三面中', '终面中'].includes(status)) {
     const currentIdx = ROUND_ORDER.indexOf(targetRound)
     for (let i = 0; i < currentIdx; i++) {
@@ -96,7 +92,6 @@ export function syncInterviewRounds(job) {
     }
   }
 
-  // For Offer, mark the highest in-progress round as passed
   if (status === 'Offer') {
     for (let i = ROUND_ORDER.length - 1; i >= 0; i--) {
       const found = rounds.find(r => r.round === ROUND_ORDER[i] && r.status === '进行中')
@@ -110,16 +105,29 @@ export function syncInterviewRounds(job) {
 function migrateJobs(jobs) {
   return jobs.map((j) => {
     let updated = { ...j }
-    // Convert old '面试中' to '一面中'
     if (updated.status === '面试中') {
       updated.status = '一面中'
     }
-    // Sync interviewRounds with current status
     return syncInterviewRounds(updated)
   })
 }
 
+// ---- API helper ----
+
+async function apiFetch(url, options = {}) {
+  const res = await fetch(url, {
+    headers: { 'Content-Type': 'application/json' },
+    ...options,
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || '请求失败')
+  return data
+}
+
+// ---- localStorage helpers ----
+
 function loadFromStorage(key, fallback) {
+  if (typeof window === 'undefined') return fallback
   try {
     const raw = localStorage.getItem(key)
     if (raw) return JSON.parse(raw)
@@ -134,9 +142,15 @@ function saveToStorage(key, data) {
 }
 
 export function AppProvider({ children }) {
-  const [activePage, setActivePage] = useState('dashboard')
-
-  // Toast system
+  const [jobs, setJobsRaw] = useState([])
+  const [resumes, setResumesRaw] = useState([])
+  const [tasks, setTasksRaw] = useState([])
+  const [reviews, setReviewsRaw] = useState([])
+  const [settings, setSettingsRaw] = useState(() => {
+    if (typeof window === 'undefined') return defaultSettings
+    return loadFromStorage('offerFlow_settings', defaultSettings)
+  })
+  const [dataLoading, setDataLoading] = useState(true)
   const [toasts, setToasts] = useState([])
 
   const addToast = useCallback((message, type = 'success') => {
@@ -147,16 +161,56 @@ export function AppProvider({ children }) {
     }, 3000)
   }, [])
 
-  // Initialize data from localStorage or mock data
-  const mock = generateMockData()
+  // ---- Data loading on mount ----
+  useEffect(() => {
+    loadAllData()
+  }, [])
 
-  const [jobs, setJobsRaw] = useState(() => migrateJobs(loadFromStorage('offerFlow_jobs', mock.jobs)))
-  const [resumes, setResumesRaw] = useState(() => loadFromStorage('offerFlow_resumes', mock.resumes))
-  const [tasks, setTasksRaw] = useState(() => loadFromStorage('offerFlow_tasks', mock.tasks))
-  const [reviews, setReviewsRaw] = useState(() => loadFromStorage('offerFlow_reviews', mock.reviews))
-  const [settings, setSettingsRaw] = useState(() => loadFromStorage('offerFlow_settings', defaultSettings))
+  async function loadAllData() {
+    setDataLoading(true)
+    try {
+      let [j, r, t, rv] = await Promise.all([
+        apiFetch('/api/jobs'),
+        apiFetch('/api/resumes'),
+        apiFetch('/api/tasks'),
+        apiFetch('/api/reviews'),
+      ])
 
-  // Auto-sync to localStorage on every change
+      // Seed mock data for new users
+      if (!j.length && !r.length && !t.length && !rv.length) {
+        await apiFetch('/api/seed', { method: 'POST' })
+        ;[j, r, t, rv] = await Promise.all([
+          apiFetch('/api/jobs'),
+          apiFetch('/api/resumes'),
+          apiFetch('/api/tasks'),
+          apiFetch('/api/reviews'),
+        ])
+      }
+
+      setJobsRaw(migrateJobs(j))
+      setResumesRaw(r)
+      setTasksRaw(t)
+      setReviewsRaw(rv)
+
+      saveToStorage('offerFlow_jobs', migrateJobs(j))
+      saveToStorage('offerFlow_resumes', r)
+      saveToStorage('offerFlow_tasks', t)
+      saveToStorage('offerFlow_reviews', rv)
+    } catch (err) {
+      console.error('[AppContext] API load failed, falling back to localStorage', err)
+      addToast('数据加载失败，使用本地缓存', 'error')
+      const mock = generateMockData()
+      setJobsRaw(migrateJobs(loadFromStorage('offerFlow_jobs', mock.jobs)))
+      setResumesRaw(loadFromStorage('offerFlow_resumes', mock.resumes))
+      setTasksRaw(loadFromStorage('offerFlow_tasks', mock.tasks))
+      setReviewsRaw(loadFromStorage('offerFlow_reviews', mock.reviews))
+    } finally {
+      setDataLoading(false)
+    }
+  }
+
+  // ---- Setters with localStorage sync ----
+
   const setJobs = useCallback((value) => {
     setJobsRaw((prev) => {
       const next = typeof value === 'function' ? value(prev) : value
@@ -189,21 +243,119 @@ export function AppProvider({ children }) {
     })
   }, [])
 
-  const addReview = useCallback((review) => {
-    setReviewsRaw((prev) => {
-      const next = [...prev, {
-        ...review,
-        id: review.id || crypto.randomUUID(),
-        attachments: Array.isArray(review.attachments) ? review.attachments : [],
-      }]
-      saveToStorage('offerFlow_reviews', next)
-      return next
-    })
-  }, [])
+  // ---- Async CRUD methods ----
 
-  const updateReview = useCallback((id, patch) => {
-    setReviewsRaw((prev) => {
-      const next = prev.map((r) =>
+  // Jobs
+  const addJob = useCallback(async (formData) => {
+    try {
+      const result = await apiFetch('/api/jobs', { method: 'POST', body: JSON.stringify(formData) })
+      const newJob = syncInterviewRounds({ ...formData, ...result.job })
+      setJobs((prev) => [...prev, newJob])
+      return newJob
+    } catch (err) {
+      addToast(err.message, 'error')
+    }
+  }, [setJobs, addToast])
+
+  const updateJob = useCallback(async (id, patch) => {
+    try {
+      await apiFetch('/api/jobs', { method: 'PUT', body: JSON.stringify({ id, ...patch }) })
+      setJobs((prev) => prev.map((j) => j.id === id ? syncInterviewRounds({ ...j, ...patch }) : j))
+    } catch (err) {
+      addToast(err.message, 'error')
+    }
+  }, [setJobs, addToast])
+
+  const deleteJob = useCallback(async (ids) => {
+    const idList = Array.isArray(ids) ? ids : [ids]
+    if (!idList.length) return
+    try {
+      await apiFetch('/api/jobs', { method: 'DELETE', body: JSON.stringify({ ids: idList }) })
+      setJobs((prev) => prev.filter((j) => !idList.includes(j.id)))
+    } catch (err) {
+      addToast(err.message, 'error')
+    }
+  }, [setJobs, addToast])
+
+  // Resumes
+  const addResume = useCallback(async (formData) => {
+    try {
+      const result = await apiFetch('/api/resumes', { method: 'POST', body: JSON.stringify(formData) })
+      const newResume = result.resume
+      setResumes((prev) => [...prev, newResume])
+      return newResume
+    } catch (err) {
+      addToast(err.message, 'error')
+    }
+  }, [setResumes, addToast])
+
+  const updateResume = useCallback(async (id, patch) => {
+    try {
+      await apiFetch('/api/resumes', { method: 'PUT', body: JSON.stringify({ id, ...patch }) })
+      setResumes((prev) => prev.map((r) => r.id === id ? { ...r, ...patch } : r))
+    } catch (err) {
+      addToast(err.message, 'error')
+    }
+  }, [setResumes, addToast])
+
+  const deleteResume = useCallback(async (id) => {
+    try {
+      await apiFetch(`/api/resumes?id=${id}`, { method: 'DELETE' })
+      setResumes((prev) => prev.filter((r) => r.id !== id))
+    } catch (err) {
+      addToast(err.message, 'error')
+    }
+  }, [setResumes, addToast])
+
+  // Tasks
+  const addTask = useCallback(async (formData) => {
+    try {
+      const result = await apiFetch('/api/tasks', { method: 'POST', body: JSON.stringify(formData) })
+      const newTask = result.task
+      setTasks((prev) => [...prev, newTask])
+      return newTask
+    } catch (err) {
+      addToast(err.message, 'error')
+    }
+  }, [setTasks, addToast])
+
+  const updateTask = useCallback(async (id, patch) => {
+    try {
+      await apiFetch('/api/tasks', { method: 'PUT', body: JSON.stringify({ id, ...patch }) })
+      setTasks((prev) => prev.map((t) => t.id === id ? { ...t, ...patch } : t))
+    } catch (err) {
+      addToast(err.message, 'error')
+    }
+  }, [setTasks, addToast])
+
+  const deleteTask = useCallback(async (id) => {
+    try {
+      await apiFetch(`/api/tasks?id=${id}`, { method: 'DELETE' })
+      setTasks((prev) => prev.filter((t) => t.id !== id))
+    } catch (err) {
+      addToast(err.message, 'error')
+    }
+  }, [setTasks, addToast])
+
+  // Reviews
+  const addReview = useCallback(async (reviewData) => {
+    try {
+      const result = await apiFetch('/api/reviews', { method: 'POST', body: JSON.stringify(reviewData) })
+      const newReview = {
+        ...result.review,
+        attachments: Array.isArray(result.review.attachments) ? result.review.attachments : [],
+      }
+      setReviews((prev) => [...prev, newReview])
+      return newReview
+    } catch (err) {
+      addToast(err.message, 'error')
+    }
+  }, [setReviews, addToast])
+
+  const updateReview = useCallback(async (id, patch) => {
+    try {
+      await apiFetch('/api/reviews', { method: 'PUT', body: JSON.stringify({ id, ...patch }) })
+      setReviews((prev) => prev.map((r) =>
         r.id === id
           ? {
               ...r,
@@ -214,25 +366,23 @@ export function AppProvider({ children }) {
                   : r.attachments || [],
             }
           : r
-      )
-      saveToStorage('offerFlow_reviews', next)
-      return next
-    })
-  }, [])
+      ))
+    } catch (err) {
+      addToast(err.message, 'error')
+    }
+  }, [setReviews, addToast])
 
   const deleteReview = useCallback(async (id) => {
     try {
       await deleteReviewAttachmentsByReviewId(id)
-    } catch (e) {
-      console.error('[review attachment cleanup failed]', e)
+      await apiFetch(`/api/reviews?id=${id}`, { method: 'DELETE' })
+      setReviews((prev) => prev.filter((r) => r.id !== id))
+    } catch (err) {
+      addToast(err.message, 'error')
     }
-    setReviewsRaw((prev) => {
-      const next = prev.filter((r) => r.id !== id)
-      saveToStorage('offerFlow_reviews', next)
-      return next
-    })
-  }, [])
+  }, [setReviews, addToast])
 
+  // Settings (localStorage only)
   const setSettings = useCallback((value) => {
     setSettingsRaw((prev) => {
       const next = typeof value === 'function' ? value(prev) : value
@@ -243,13 +393,17 @@ export function AppProvider({ children }) {
 
   return (
     <AppContext.Provider value={{
-      activePage, setActivePage,
       jobs, setJobs,
       resumes, setResumes,
       tasks, setTasks,
-      reviews, setReviews, addReview, updateReview, deleteReview,
+      reviews, setReviews,
+      addJob, updateJob, deleteJob,
+      addResume, updateResume, deleteResume,
+      addTask, updateTask, deleteTask,
+      addReview, updateReview, deleteReview,
       settings, setSettings,
       toasts, addToast,
+      dataLoading,
     }}>
       {children}
       <Toast />

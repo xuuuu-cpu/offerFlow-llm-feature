@@ -1,10 +1,11 @@
+'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { useApp } from '../store/AppContext'
 import ModalHeader from './ModalHeader'
 import GlowCard from './GlowCard'
 
 export default function TaskModal({ open, task, defaultDate, onClose }) {
-  const { jobs, setTasks, addToast } = useApp()
+  const { jobs, addToast, addTask, updateTask } = useApp()
 
   const [title, setTitle] = useState('')
   const [type, setType] = useState('其他')
@@ -59,20 +60,13 @@ export default function TaskModal({ open, task, defaultDate, onClose }) {
 
   if (!open) return null
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!title.trim()) { addToast('请输入事项标题', 'error'); return }
     if (task) {
-      setTasks((prev) => prev.map((t) =>
-        t.id === task.id
-          ? { ...t, title: title.trim(), type, date, startTime, endTime, priority, jobId, notes }
-          : t
-      ))
+      await updateTask(task.id, { title: title.trim(), type, date, startTime, endTime, priority, jobId, notes })
       addToast('事项已更新', 'success')
     } else {
-      setTasks((prev) => [...prev, {
-        id: crypto.randomUUID(), title: title.trim(), type, date, startTime, endTime,
-        priority, done: false, jobId, notes,
-      }])
+      await addTask({ title: title.trim(), type, date, startTime, endTime, priority, jobId, notes })
       addToast('事项已创建', 'success')
     }
     onClose()

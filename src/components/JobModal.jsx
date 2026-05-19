@@ -1,5 +1,6 @@
+'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { useApp, syncInterviewRounds } from '../store/AppContext'
+import { useApp } from '../store/AppContext'
 import ModalHeader from './ModalHeader'
 import GlowCard from './GlowCard'
 
@@ -61,7 +62,7 @@ function Select({ label, value, onChange, options }) {
 }
 
 export default function JobModal({ open, job, onClose, initialStatus }) {
-  const { setJobs, resumes, addToast } = useApp()
+  const { resumes, addToast, addJob, updateJob } = useApp()
   const [form, setForm] = useState(emptyForm)
 
   useEffect(() => {
@@ -84,21 +85,19 @@ export default function JobModal({ open, job, onClose, initialStatus }) {
     return () => window.removeEventListener('keydown', handler)
   }, [open, onClose])
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.companyName.trim() || !form.jobTitle.trim()) {
       addToast('公司名称和岗位名称为必填项', 'error')
       return
     }
 
-    setJobs((prev) => {
-      if (job) {
-        return prev.map((j) => j.id === job.id ? syncInterviewRounds({ ...form, id: job.id }) : j)
-      } else {
-        return [syncInterviewRounds({ ...form, id: crypto.randomUUID(), timeline: [] }), ...prev]
-      }
-    })
-
-    addToast(job ? '岗位已更新' : '岗位已新增', 'success')
+    if (job) {
+      await updateJob(job.id, form)
+      addToast('岗位已更新', 'success')
+    } else {
+      await addJob({ ...form, timeline: [] })
+      addToast('岗位已新增', 'success')
+    }
     onClose()
   }
 

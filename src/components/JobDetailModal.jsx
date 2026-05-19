@@ -1,5 +1,6 @@
+'use client'
 import { useState, useEffect } from 'react'
-import { useApp, syncInterviewRounds } from '../store/AppContext'
+import { useApp } from '../store/AppContext'
 import ModalHeader from './ModalHeader'
 import GlowCard from './GlowCard'
 
@@ -32,7 +33,7 @@ function todayStr() {
 }
 
 export default function JobDetailModal({ open, jobId, onClose, onEdit, onDelete }) {
-  const { jobs, setJobs, resumes, setTasks, setReviews, addToast } = useApp()
+  const { jobs, resumes, addToast, updateJob, addTask, addReview } = useApp()
   const job = jobs.find((j) => j.id === jobId)
 
   // Sub-dialog state
@@ -55,39 +56,34 @@ export default function JobDetailModal({ open, jobId, onClose, onEdit, onDelete 
   const resumeName = resumes.find((r) => r.id === job.resumeId)
 
   // ---- Status change ----
-  const changeStatus = (newStatus, label) => {
-    setJobs((prev) =>
-      prev.map((j) => {
-        if (j.id !== jobId) return j
-        const tl = j.timeline || []
-        return syncInterviewRounds({
-          ...j,
-          status: newStatus,
-          timeline: [...tl, { date: todayStr(), action: `标记为 ${label}`, detail: `从 ${j.status} 更新为 ${newStatus}` }],
-          endReason: newStatus === '已结束' && !j.endReason ? '手动标记' : j.endReason,
-        })
-      })
-    )
+  const changeStatus = async (newStatus, label) => {
+    const existing = jobs.find((j) => j.id === jobId)
+    if (!existing) return
+    await updateJob(jobId, {
+      status: newStatus,
+      timeline: [...(existing.timeline || []), { date: todayStr(), action: `标记为 ${label}`, detail: `从 ${existing.status} 更新为 ${newStatus}` }],
+      endReason: newStatus === '已结束' && !existing.endReason ? '手动标记' : existing.endReason,
+    })
     addToast(`已标记为「${label}」`, 'success')
   }
 
   // ---- Create task ----
-  const createTask = () => {
+  const createTask = async () => {
     if (!taskForm.title.trim()) { addToast('请输入日程标题', 'error'); return }
-    setTasks((prev) => [...prev, {
-      id: crypto.randomUUID(), title: taskForm.title, type: taskForm.type,
-      date: taskForm.date, startTime: taskForm.startTime, done: false, jobId,
-      notes: taskForm.notes,
-    }])
+    await addTask({
+      title: taskForm.title, type: taskForm.type,
+      date: taskForm.date, startTime: taskForm.startTime,
+      jobId, notes: taskForm.notes,
+    })
     addToast('日程已创建', 'success')
     setTaskForm({ title: '', type: '其他', date: todayStr(), startTime: '', notes: '' })
     setShowTaskForm(false)
   }
 
   // ---- Create review ----
-  const createReview = () => {
-    setReviews((prev) => [...prev, {
-      id: crypto.randomUUID(), companyName: job.companyName, jobTitle: job.jobTitle, jobId,
+  const createReview = async () => {
+    await addReview({
+      companyName: job.companyName, jobTitle: job.jobTitle, jobId,
       interviewDate: reviewForm.interviewDate, round: reviewForm.round,
       interviewType: reviewForm.interviewType,
       duration: reviewForm.duration, interviewerInfo: reviewForm.interviewerInfo,
@@ -96,7 +92,7 @@ export default function JobDetailModal({ open, jobId, onClose, onEdit, onDelete 
       strengths: reviewForm.strengths, weaknesses: reviewForm.weaknesses,
       scores: { expression: 3, jobUnderstanding: 3, projectFamiliarity: 3, businessThinking: 3, technicalAbility: 3, composure: 3, questionQuality: 3, overall: reviewForm.rating },
       questions: [], tags: [], improvements: [],
-    }])
+    })
     addToast('复盘记录已创建', 'success')
     setReviewForm({ interviewDate: todayStr(), round: '一面', interviewType: '技术面', result: '待定', duration: '', interviewerInfo: '', rating: 3, note: '', strengths: '', weaknesses: '' })
     setShowReviewForm(false)

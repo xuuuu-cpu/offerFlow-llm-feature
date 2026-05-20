@@ -1,17 +1,20 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import SplashScreen from '@/components/SplashScreen'
 
 export default function AuthLayout({ children }) {
-  const [splashDone, setSplashDone] = useState(false)
-
-  useEffect(() => {
-    const shown = sessionStorage.getItem('offerflow_splash_shown')
-    if (shown) {
-      setSplashDone(true)
+  // Read sessionStorage synchronously on first render to prevent flash.
+  // Server-side: catch block returns false (splash visible).
+  // Client re-entry with flag: returns true (splash hidden — no flash).
+  // After logout (flag cleared): returns false (splash visible).
+  const [splashDone, setSplashDone] = useState(() => {
+    try {
+      return sessionStorage.getItem('offerflow_splash_shown') === 'true'
+    } catch {
+      return false
     }
-  }, [])
+  })
 
   const handleEnter = useCallback(() => {
     sessionStorage.setItem('offerflow_splash_shown', 'true')

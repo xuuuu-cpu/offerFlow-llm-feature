@@ -592,3 +592,28 @@
 - `src/app/api/auth/register/route.js` — 修改（阻止注册 `user`）
 - `src/app/api/seed/route.js` — 修改（简化为委托调用）
 
+---
+
+## 会话 25：退出登录 SplashScreen 重置
+
+**时间**：2026-05-20
+
+**内容**：
+- **问题**：退出登录后跳转到 `/auth/login`，SplashScreen 一闪而过直接进入登录界面
+- **Root Cause**：
+  1. `AuthContext.logout()` 清除了 `localStorage` 但未清除 `sessionStorage` 中的 `offerflow_splash_shown` 标记
+  2. 重新访问 `/auth/login` 时，`auth/layout.jsx` 的 `useEffect` 检测到 `sessionStorage` 标记存在，立即将 `splashDone` 设为 `true`
+  3. SplashScreen 在极短时间内渲染又退出，形成"一闪而过"的观感
+- **修复**：
+  - `AuthContext.jsx` — logout 中添加 `sessionStorage.removeItem('offerflow_splash_shown')`
+  - `auth/layout.jsx` — 改为 `useState` 同步惰性初始值读取 `sessionStorage`：
+    - 同步执行，首次渲染时值就正确，无需 `useEffect` 二次修正
+    - 退出登录后 `sessionStorage` 已清 → 初始值 `false` → SplashScreen 正常展示
+    - 非退出重入（如浏览器返回）→ `sessionStorage` 标记存在 → 初始值 `true` → 直接跳过 SplashScreen（无闪屏）
+    - 首次访问 → `sessionStorage` 无标记 → 初始值 `false` → SplashScreen 正常展示
+  - 移除不再使用的 `useEffect` 导入
+
+**验证结果**：
+- `npm run build` ✅ — 22 路由全部通过
+
+

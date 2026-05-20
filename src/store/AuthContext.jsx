@@ -59,6 +59,8 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('offerFlow_resumes')
     localStorage.removeItem('offerFlow_tasks')
     localStorage.removeItem('offerFlow_reviews')
+    // Reset SplashScreen so it shows again on next auth visit
+    sessionStorage.removeItem('offerflow_splash_shown')
     setUser(null)
   }, [])
 

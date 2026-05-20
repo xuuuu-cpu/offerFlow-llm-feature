@@ -401,6 +401,7 @@
 | **17** | **Vercel 部署 + Neon PostgreSQL 迁移** | ✅ **已完成** | 2026-05-19 |
 | **18** | **用户数据隔离修复** | ✅ **已完成** | 2026-05-20 |
 | **19** | **演示账号 Seed 机制** | ✅ **已完成** | 2026-05-20 |
+| **20** | **退出登录 SplashScreen 重置** | ✅ **已完成** | 2026-05-20 |
 
 ### 阶段 17：Vercel 部署 + Neon PostgreSQL 迁移 ✅
 
@@ -442,6 +443,23 @@
 - `src/app/api/auth/login/route.js` — 登录时自动创建 + seed
 - `src/app/api/auth/register/route.js` — 阻止注册 `user`
 - `src/app/api/seed/route.js` — 简化为委托调用
+
+---
+
+### 阶段 20：退出登录 SplashScreen 重置 ✅
+
+**目标**：退出登录后重新进入 `/auth/login` 时正常展示 SplashScreen，而非一闪而过。
+
+- [x] `AuthContext.logout()` 清除 `sessionStorage` 中的 `offerflow_splash_shown` 标记
+- [x] `auth/layout.jsx` 改用 `useState` 同步初始值替代 `useEffect` 异步读取，消除闪屏
+- [x] 移除 `useEffect` 导入（不再使用）
+- [x] 验证：退出登录 → 重定向到 `/auth/login` → SplashScreen 正常展示
+- [x] 验证：已进入登录页后刷新不会反复显示 SplashScreen（sessionStorage 标记保留）
+- [x] 验证：滚轮下滑/触屏上滑/点击按钮三种方式仍正常工作
+
+**修改的文件**：
+- `src/store/AuthContext.jsx` — logout 中添加 `sessionStorage.removeItem('offerflow_splash_shown')`
+- `src/app/auth/layout.jsx` — 同步初始化 `splashDone` 状态，移除 `useEffect`
 
 ---
 

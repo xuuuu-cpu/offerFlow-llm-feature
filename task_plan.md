@@ -400,6 +400,7 @@
 
 | **17** | **Vercel 部署 + Neon PostgreSQL 迁移** | ✅ **已完成** | 2026-05-19 |
 | **18** | **用户数据隔离修复** | ✅ **已完成** | 2026-05-20 |
+| **19** | **演示账号 Seed 机制** | ✅ **已完成** | 2026-05-20 |
 
 ### 阶段 17：Vercel 部署 + Neon PostgreSQL 迁移 ✅
 
@@ -419,6 +420,28 @@
 **遇到的问题**：
 - Supabase 项目 DNS 仅返回 IPv6 地址，从 Vercel AWS 和美国网络均无法连接（443/5432/6543 全部端口不通）
 - 解决方案：改用 Neon PostgreSQL，完整 IPv4 支持，连接一次成功
+
+---
+
+### 阶段 19：演示账号 Seed 机制 ✅
+
+**目标**：系统内置演示账号 `user` / `000000`，首次登录时自动创建账号并写入测试数据。
+
+- [x] `src/lib/seedDemoData.js` — 新建：`ensureDemoUser()` 自动创建 demo 用户、`seedDemoDataForUser()` 写入 14 岗位/5 简历/11 任务/7 复盘
+- [x] `login/route.js` — 检测 `username === 'user'` → 自动创建账号（如不存在）→ seed 数据（如为空）
+- [x] `register/route.js` — 阻止注册保留用户名 `user`
+- [x] `seed/route.js` — 简化为委托 `seedDemoDataForUser()`
+- [x] 幂等性：重复登录 `user` 不会重复插入数据
+- [x] 数据隔离：普通用户不看到演示数据
+- [x] 构建验证通过（22 路由全部通过）
+
+**创建的文件**：
+- `src/lib/seedDemoData.js` — 账号创建 + 种子数据写入，含幂等判断
+
+**修改的文件**：
+- `src/app/api/auth/login/route.js` — 登录时自动创建 + seed
+- `src/app/api/auth/register/route.js` — 阻止注册 `user`
+- `src/app/api/seed/route.js` — 简化为委托调用
 
 ---
 

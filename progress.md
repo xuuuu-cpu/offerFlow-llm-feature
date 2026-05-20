@@ -558,3 +558,37 @@
 - 需部署后清理 Neon 中非 `user` 账户的多余种子数据
 - 执行 SQL：`DELETE FROM jobs WHERE userId NOT IN (SELECT id FROM users WHERE username = 'user');`（4 表级联）
 
+---
+
+## 会话 24：演示账号 Seed 机制
+
+**时间**：2026-05-20
+
+**内容**：
+- 创建 `src/lib/seedDemoData.js`，提供两个核心函数：
+  - `ensureDemoUser()` — 检查 demo 用户是否存在，不存在则用 bcrypt 创建（密码 000000）
+  - `seedDemoDataForUser(userId)` — 写入 14 岗位/5 简历/11 任务/7 复盘，带 userId 绑定；幂等（已有数据则跳过）
+- 修改登录路由：`username === 'user'` 时自动调用 `ensureDemoUser()` → 正常认证 → `seedDemoDataForUser()`
+- 修改注册路由：阻止注册保留用户名 `user`（返回 409）
+- 简化 `seed/route.js`：委托 `seedDemoDataForUser()`，移除内联的种子数据
+
+**设计要点**：
+- 种子数据从 `seed/route.js` 移到 `src/lib/seedDemoData.js`，login 和 seed API 共用
+- `ensureDemoUser()` 使用 bcrypt 实时哈希，不存明文密码
+- `seedDemoDataForUser()` 先 count jobs，有数据则跳过（幂等）
+- 普通用户注册/登录完全不受影响，不走 seed 路径
+- 所有 seed 数据绑定传入的 userId，数据隔离不变
+
+**验证结果**：
+- `npm run build` ✅ — 22 路由全部通过
+- 登录 `user` / `000000` → 自动创建账号 → 写入种子数据 → 用户看到完整数据
+- 再次登录 `user` → 种子已存在，跳过写入
+- 注册新用户 → 阻止注册 `user`（409）；其他用户名正常注册
+- 普通用户登录 → 空数据
+
+**修改/创建的文件**：
+- `src/lib/seedDemoData.js` — 新建（核心逻辑）
+- `src/app/api/auth/login/route.js` — 修改（添加 auto-create + seed）
+- `src/app/api/auth/register/route.js` — 修改（阻止注册 `user`）
+- `src/app/api/seed/route.js` — 修改（简化为委托调用）
+
